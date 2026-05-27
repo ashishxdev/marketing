@@ -240,21 +240,25 @@ app.get("/callback-google", async (req, res) => {
 
     const { tokens } = await oauth2Client.getToken(code);
 
-    // Try to list accessible Google Ads customers
+    // Try to list accessible Google Ads customers (only if developer token is set)
     let customerIds = [];
-    try {
-      const listRes = await axios.get(
-        "https://googleads.googleapis.com/v24/customers:listAccessibleCustomers",
-        {
-          headers: {
-            Authorization: `Bearer ${tokens.access_token}`,
-            "developer-token": process.env.GOOGLE_ADS_DEVELOPER_TOKEN || "",
-          },
-        }
-      );
-      customerIds = listRes.data.resourceNames || [];
-    } catch (e) {
-      console.log("Could not list Google Ads customers:", e.response?.data?.error ? JSON.stringify(e.response.data.error, null, 2) : e.message);
+    if (process.env.GOOGLE_ADS_DEVELOPER_TOKEN) {
+      try {
+        const listRes = await axios.get(
+          "https://googleads.googleapis.com/v24/customers:listAccessibleCustomers",
+          {
+            headers: {
+              Authorization: `Bearer ${tokens.access_token}`,
+              "developer-token": process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
+            },
+          }
+        );
+        customerIds = listRes.data.resourceNames || [];
+      } catch (e) {
+        console.log("Could not list Google Ads customers:", e.response?.data?.error ? JSON.stringify(e.response.data.error, null, 2) : e.message);
+      }
+    } else {
+      console.log("ℹ️ Skipping Google Ads account listing because GOOGLE_ADS_DEVELOPER_TOKEN is not set in environment variables.");
     }
 
     await supabase.from("google_users").upsert([{
