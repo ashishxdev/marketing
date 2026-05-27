@@ -444,6 +444,8 @@ cron.schedule("0 10 * * 1", async () => {
 app.get("/api/test-generate-report", async (req, res) => {
   try {
     const companyId = req.query.company_id || "7b7c5017-10b9-4fae-ae9f-ecc6ef0cde3f";
+    const platform = req.query.platform || "both"; // 'meta', 'google', or 'both'
+    const period = req.query.period || "weekly"; // 'daily' or 'weekly'
 
     // 1. Fetch company
     const { data: company, error: compErr } = await supabase
@@ -456,7 +458,7 @@ app.get("/api/test-generate-report", async (req, res) => {
       return res.status(404).json({ error: "Company profile not found. Please complete Settings first.", details: compErr });
     }
 
-    // 2. Fetch all campaign snapshots
+    // 2. Fetch campaign snapshots
     const { data: snapshots, error: snapErr } = await supabase
       .from("campaign_snapshots")
       .select("*")
@@ -466,16 +468,26 @@ app.get("/api/test-generate-report", async (req, res) => {
       return res.status(400).json({ error: "No campaign snapshots found in database. Injected mock data might be missing.", details: snapErr });
     }
 
-    console.log(`🤖 Testing Gemini analysis for ${company.company_name} with ${snapshots.length} campaign snapshots...`);
+    // Filter snapshots by requested platform
+    let filteredSnapshots = snapshots;
+    if (platform !== "both") {
+      filteredSnapshots = snapshots.filter(s => s.platform === platform);
+    }
+
+    if (!filteredSnapshots.length) {
+      return res.status(400).json({ error: `No campaign snapshots found in database for platform: ${platform}` });
+    }
+
+    console.log(`🤖 Testing Gemini analysis for ${company.company_name} with ${filteredSnapshots.length} campaign snapshots on platform: ${platform}...`);
 
     // 3. Call Gemini AI Analysis
-    const analysis = await analyzeAds(snapshots, company.company_description || "E-commerce advertising campaigns", "both");
+    const analysis = await analyzeAds(filteredSnapshots, company.company_description || "E-commerce advertising campaigns", platform);
 
     // 4. Save to AI Reports table in Supabase
     const { error: insertErr } = await supabase.from("ai_reports").insert([{
       company_id:  companyId,
-      platform:    "both",
-      period:      "weekly",
+      platform:    platform,
+      period:      period,
       report_json: analysis,
     }]);
 
@@ -485,7 +497,7 @@ app.get("/api/test-generate-report", async (req, res) => {
 
     res.json({
       success: true,
-      message: "Weekly AI Report successfully generated and stored in Supabase!",
+      message: `${platform.toUpperCase()} AI Report successfully generated and stored in Supabase under period: ${period}!`,
       report: analysis
     });
   } catch (err) {

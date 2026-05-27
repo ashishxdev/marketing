@@ -463,8 +463,7 @@ function ReportsTab({ token }) {
 
   const filtered = filter === 'all' ? reports : reports.filter(r => 
     r.platform === filter || 
-    r.period === filter || 
-    (r.platform === 'both' && (filter === 'meta' || filter === 'google'))
+    r.period === filter
   );
 
   return (
