@@ -2,6 +2,9 @@
   "name": "marketing-agent",
   "version": "1.0.0",
   "description": "",
+  "engines": {
+    "node": ">=20"
+  },
   "main": "index.js",
   "scripts": {
     "start": "node server.js",
