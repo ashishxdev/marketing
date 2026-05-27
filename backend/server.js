@@ -19,11 +19,11 @@ app.use(cors({ origin: ["http://localhost:3001", frontendUrl], credentials: true
 app.use(express.json());
 
 // ─── GOOGLE OAUTH CLIENT ─────────────────────────────────────
-const oauth2Client = new google.auth.OAuth2(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-  `${process.env.BASE_URL}/callback-google`
-);
+const oauth2Client = new google.auth.OAuth2({
+  clientId:     process.env.GOOGLE_CLIENT_ID,
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  redirectUri:  `${process.env.BASE_URL}/callback-google`
+});
 
 // ─── AUTH MIDDLEWARE ─────────────────────────────────────────
 async function requireAuth(req, res, next) {
@@ -244,7 +244,7 @@ app.get("/callback-google", async (req, res) => {
     let customerIds = [];
     try {
       const listRes = await axios.get(
-        "https://googleads.googleapis.com/v17/customers:listAccessibleCustomers",
+        "https://googleads.googleapis.com/v24/customers:listAccessibleCustomers",
         {
           headers: {
             Authorization: `Bearer ${tokens.access_token}`,
