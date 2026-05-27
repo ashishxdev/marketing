@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Environment variables — NEVER commit these
+.env
+.env.local
+.env.production
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+
+# SQL files with sensitive info (optional, remove if you want to commit)
+# supabase_rls_policies.sql

@@ -1,0 +1,100 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --color-brand-purple: #7c6af7;
+  --color-brand-cyan: #00d4ff;
+  --color-brand-green: #52e5a0;
+  --color-brand-red: #ff5c5c;
+  --color-brand-orange: #ff9f43;
+  --color-bg-primary: #07080d;
+  --color-bg-secondary: #0d0f1a;
+  --color-bg-card: rgba(255, 255, 255, 0.04);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: #07080d;
+  color: #f0f0ff;
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: #0d0f1a; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+/* Gradient text utility */
+.gradient-text {
+  background: linear-gradient(135deg, #7c6af7 0%, #00d4ff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Orb animation */
+@keyframes floatOrb {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(40px, -60px) scale(1.08); }
+  66%       { transform: translate(-30px, 40px) scale(0.95); }
+}
+.orb-animate { animation: floatOrb 20s ease-in-out infinite; }
+.orb-animate-2 { animation: floatOrb 20s ease-in-out infinite; animation-delay: -7s; }
+.orb-animate-3 { animation: floatOrb 20s ease-in-out infinite; animation-delay: -14s; }
+
+/* Dashboard float */
+@keyframes dashFloat {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-12px); }
+}
+.dash-float { animation: dashFloat 5s ease-in-out infinite; }
+
+/* Bar grow */
+@keyframes growBar {
+  from { transform: scaleY(0); transform-origin: bottom; }
+  to   { transform: scaleY(1); transform-origin: bottom; }
+}
+.bar-grow { animation: growBar 1s ease forwards; }
+
+/* Pulse dot */
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.7); }
+}
+.pulse-dot { animation: pulseDot 2s ease-in-out infinite; }
+
+/* Spin */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.spin { animation: spin 0.7s linear infinite; }
+
+/* Shimmer */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Slide in toast */
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(40px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.slide-in { animation: slideInRight 0.3s ease; }
+
+/* Fade in */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in-up { animation: fadeInUp 0.3s ease; }
