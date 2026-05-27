@@ -254,7 +254,7 @@ app.get("/callback-google", async (req, res) => {
       );
       customerIds = listRes.data.resourceNames || [];
     } catch (e) {
-      console.log("Could not list Google Ads customers:", e.response?.data?.error || e.message);
+      console.log("Could not list Google Ads customers:", e.response?.data?.error ? JSON.stringify(e.response.data.error, null, 2) : e.message);
     }
 
     await supabase.from("google_users").upsert([{
