@@ -179,6 +179,15 @@ app.get("/callback", async (req, res) => {
     const userResponse = await axios.get("https://graph.facebook.com/me", { params: { access_token: accessToken } });
     const facebookUserId = userResponse.data.id;
 
+    // Ensure a company row exists in 'companies' table for the foreign key constraint
+    if (companyId) {
+      await supabase.from("companies").upsert([{
+        id: companyId,
+        company_name: "My Company",
+        company_description: "",
+      }]);
+    }
+
     // Upsert user with company_id
     const { error: upsertError } = await supabase.from("users").upsert([{
       facebook_user_id: facebookUserId,
@@ -269,6 +278,15 @@ app.get("/callback-google", async (req, res) => {
       }
     } else {
       console.log("ℹ️ Skipping Google Ads account listing because GOOGLE_ADS_DEVELOPER_TOKEN is not set in environment variables.");
+    }
+
+    // Ensure a company row exists in 'companies' table for the foreign key constraint
+    if (companyId) {
+      await supabase.from("companies").upsert([{
+        id: companyId,
+        company_name: "My Company",
+        company_description: "",
+      }]);
     }
 
     const { error: upsertError } = await supabase.from("google_users").upsert([{
