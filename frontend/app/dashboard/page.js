@@ -98,7 +98,7 @@ function OverviewTab({ token, company, status }) {
       const totalSpend   = all.reduce((s, c) => s + (+c.spend || 0), 0);
       const totalImpr    = all.reduce((s, c) => s + (+c.impressions || 0), 0);
       const totalClicks  = all.reduce((s, c) => s + (+c.clicks || 0), 0);
-      const avgCtr       = all.length ? (all.reduce((s, c) => s + (+c.ctr || 0), 0) / all.length) : 0;
+      const avgCtr       = totalImpr ? (totalClicks / totalImpr) * 100 : 0;
       setKpis({ totalSpend, totalImpr, totalClicks, avgCtr });
 
       // Build 7-day chart from snapshots (group by date)
@@ -461,7 +461,11 @@ function ReportsTab({ token }) {
     }).catch(() => setLoading(false));
   }, [token]);
 
-  const filtered = filter === 'all' ? reports : reports.filter(r => r.platform === filter || r.period === filter);
+  const filtered = filter === 'all' ? reports : reports.filter(r => 
+    r.platform === filter || 
+    r.period === filter || 
+    (r.platform === 'both' && (filter === 'meta' || filter === 'google'))
+  );
 
   return (
     <div className="fade-in-up flex flex-col gap-5">
