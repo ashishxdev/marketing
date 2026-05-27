@@ -110,6 +110,11 @@ function OverviewTab({ token, company, status }) {
         byDate[d].clicks     += +c.clicks || 0;
         byDate[d].impressions += +c.impressions || 0;
       });
+      // Calculate real CTR percentage for each date
+      Object.keys(byDate).forEach(d => {
+        const impr = byDate[d].impressions;
+        byDate[d].ctr = impr ? (byDate[d].clicks / impr) * 100 : 0;
+      });
       setChartData(Object.values(byDate).slice(-7));
       setLoading(false);
     });
@@ -175,7 +180,7 @@ function OverviewTab({ token, company, status }) {
                   <XAxis dataKey="date" tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 10 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 10 }} axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="clicks" name="Clicks" fill="#00d4ff" radius={[4,4,0,0]} />
+                  <Bar dataKey="ctr" name="CTR (%)" fill="#00d4ff" radius={[4,4,0,0]} />
                 </BarChart>
               </ResponsiveContainer>
             )
