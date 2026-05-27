@@ -439,6 +439,62 @@ cron.schedule("0 10 * * 1", async () => {
 });
 
 
+// ─── TEST REPORT GENERATOR ENDPOINT ───────────────────────────
+// Manually trigger Gemini AI analysis on campaign snapshots for testing
+app.get("/api/test-generate-report", async (req, res) => {
+  try {
+    const companyId = req.query.company_id || "7b7c5017-10b9-4fae-ae9f-ecc6ef0cde3f";
+
+    // 1. Fetch company
+    const { data: company, error: compErr } = await supabase
+      .from("companies")
+      .select("*")
+      .eq("id", companyId)
+      .single();
+
+    if (compErr || !company) {
+      return res.status(404).json({ error: "Company profile not found. Please complete Settings first.", details: compErr });
+    }
+
+    // 2. Fetch all campaign snapshots
+    const { data: snapshots, error: snapErr } = await supabase
+      .from("campaign_snapshots")
+      .select("*")
+      .eq("company_id", companyId);
+
+    if (snapErr || !snapshots?.length) {
+      return res.status(400).json({ error: "No campaign snapshots found in database. Injected mock data might be missing.", details: snapErr });
+    }
+
+    console.log(`🤖 Testing Gemini analysis for ${company.company_name} with ${snapshots.length} campaign snapshots...`);
+
+    // 3. Call Gemini AI Analysis
+    const analysis = await analyzeAds(snapshots, company.company_description || "E-commerce advertising campaigns", "both");
+
+    // 4. Save to AI Reports table in Supabase
+    const { error: insertErr } = await supabase.from("ai_reports").insert([{
+      company_id:  companyId,
+      platform:    "both",
+      period:      "weekly",
+      report_json: analysis,
+    }]);
+
+    if (insertErr) {
+      return res.status(500).json({ error: "Failed to store generated report in database", details: insertErr });
+    }
+
+    res.json({
+      success: true,
+      message: "Weekly AI Report successfully generated and stored in Supabase!",
+      report: analysis
+    });
+  } catch (err) {
+    console.error("Test report generator error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 // ─── START ────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`✅ AdPulse AI backend running on port ${PORT}`);
