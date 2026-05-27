@@ -79,10 +79,17 @@ app.put("/api/company", requireAuth, async (req, res) => {
 
 // ─── CONNECTION STATUS ────────────────────────────────────────
 app.get("/api/connection-status", requireAuth, async (req, res) => {
-  const [{ data: metaUser }, { data: googleUser }] = await Promise.all([
+  const [
+    { data: metaUser, error: metaErr },
+    { data: googleUser, error: googleErr }
+  ] = await Promise.all([
     supabase.from("users").select("company_id").eq("company_id", req.user.id).limit(1),
     supabase.from("google_users").select("company_id").eq("company_id", req.user.id).limit(1),
   ]);
+
+  if (metaErr) console.error("Meta connection status query error:", metaErr);
+  if (googleErr) console.error("Google connection status query error:", googleErr);
+
   res.json({
     meta:   (metaUser   || []).length > 0,
     google: (googleUser || []).length > 0,
@@ -173,11 +180,14 @@ app.get("/callback", async (req, res) => {
     const facebookUserId = userResponse.data.id;
 
     // Upsert user with company_id
-    await supabase.from("users").upsert([{
+    const { error: upsertError } = await supabase.from("users").upsert([{
       facebook_user_id: facebookUserId,
       access_token: accessToken,
       company_id: companyId || null,
     }]);
+    if (upsertError) {
+      console.error("Meta token upsert database error:", upsertError);
+    }
 
     // Get and save ad accounts
     const adAccountsResponse = await axios.get("https://graph.facebook.com/v23.0/me/adaccounts", {
@@ -261,13 +271,16 @@ app.get("/callback-google", async (req, res) => {
       console.log("ℹ️ Skipping Google Ads account listing because GOOGLE_ADS_DEVELOPER_TOKEN is not set in environment variables.");
     }
 
-    await supabase.from("google_users").upsert([{
+    const { error: upsertError } = await supabase.from("google_users").upsert([{
       access_token:  tokens.access_token,
       refresh_token: tokens.refresh_token,
       company_id:    companyId || null,
       customer_ids:  customerIds,
       selected_customer_id: customerIds[0]?.replace("customers/", "") || null,
     }]);
+    if (upsertError) {
+      console.error("Google token upsert database error:", upsertError);
+    }
 
     res.redirect(`${frontendUrl}/dashboard?connected=google`);
   } catch (error) {
