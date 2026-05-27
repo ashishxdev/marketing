@@ -241,6 +241,45 @@ app.get("/callback", async (req, res) => {
   }
 });
 
+// ─── META DATA DELETION CALLBACK ──────────────────────────────
+// Compliant with Meta Platform Terms to allow automatic data deletion
+app.post("/api/meta-delete-user", async (req, res) => {
+  try {
+    const signedRequest = req.body.signed_request;
+    if (!signedRequest) {
+      return res.status(400).json({ error: "Missing signed_request" });
+    }
+
+    // Decode signed request
+    const parts = signedRequest.split(".");
+    const encodedSig = parts[0];
+    const payload = parts[1];
+
+    // Decode payload
+    const decodedPayload = JSON.parse(Buffer.from(payload, "base64").toString("utf-8"));
+    const facebookUserId = decodedPayload.user_id;
+
+    if (!facebookUserId) {
+      return res.status(400).json({ error: "Invalid payload: user_id missing" });
+    }
+
+    console.log(`🗑️ Meta data deletion requested for Facebook User ID: ${facebookUserId}`);
+
+    // Delete user connection and associated ad accounts from Supabase
+    // Cascade deletes will clean up snapshots
+    await supabase.from("users").delete().eq("facebook_user_id", facebookUserId);
+
+    // Return the compliant confirmation JSON response expected by Meta
+    res.json({
+      url: `${frontendUrl}/privacy`, // Link explaining data has been deleted
+      confirmation_code: `del_${facebookUserId}_${Date.now()}` // Unique confirmation code
+    });
+  } catch (err) {
+    console.error("Meta data deletion error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // ─── GOOGLE OAUTH ─────────────────────────────────────────────
 app.get("/google-login", (req, res) => {
   const companyId = req.query.company_id || "";
