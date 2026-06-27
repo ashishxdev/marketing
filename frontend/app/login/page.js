@@ -47,8 +47,22 @@ function LoginContent() {
     e.preventDefault();
     setLoading(true); setError('');
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email: form.email, password: form.password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email: form.email, password: form.password });
       if (error) throw error;
+
+      // Create company profile if pending from signup-before-confirm flow
+      const pendingName = localStorage.getItem('pending_company_name');
+      const pendingDesc = localStorage.getItem('pending_company_desc');
+      if (pendingName && data.session) {
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/company`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${data.session.access_token}` },
+          body: JSON.stringify({ company_name: pendingName, company_description: pendingDesc || '' }),
+        });
+        localStorage.removeItem('pending_company_name');
+        localStorage.removeItem('pending_company_desc');
+      }
+
       router.push('/dashboard');
     } catch (err) {
       setError(err.message);
@@ -62,11 +76,15 @@ function LoginContent() {
     if (!form.companyName.trim()) { setError('Please enter your company name'); return; }
     setLoading(true); setError('');
     try {
-      // 1. Create auth user
-      const { data, error: authErr } = await supabase.auth.signUp({ email: form.email, password: form.password });
+      // 1. Create auth user (disable email redirect for local dev)
+      const { data, error: authErr } = await supabase.auth.signUp({
+        email: form.email,
+        password: form.password,
+        options: { emailRedirectTo: undefined },
+      });
       if (authErr) throw authErr;
 
-      // 2. Create company row via backend
+      // 2. Create company row via backend if session exists
       const session = data.session;
       if (session) {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/company`, {
@@ -77,7 +95,10 @@ function LoginContent() {
         if (!res.ok) throw new Error('Failed to create company profile');
         router.push('/dashboard');
       } else {
-        setError('Account created! Please check your email to confirm, then sign in.');
+        // Email confirmation required — store company name for after login
+        localStorage.setItem('pending_company_name', form.companyName);
+        localStorage.setItem('pending_company_desc', form.description);
+        setError('✅ Account created! Go to Supabase → SQL Editor and run:\n\nUPDATE auth.users SET email_confirmed_at = now() WHERE email = \'' + form.email + '\';\n\nThen sign in below.');
         setMode('login');
       }
     } catch (err) {
