@@ -4,6 +4,6 @@ const { metaLogin, metaCallback, metaDeleteUser } = require("../controllers/meta
 
 router.get("/login", metaLogin);
 router.get("/callback", metaCallback);
-router.post("/api/meta-delete-user", metaDeleteUser);
+router.post("/meta-delete-user", metaDeleteUser);
 
 module.exports = router;

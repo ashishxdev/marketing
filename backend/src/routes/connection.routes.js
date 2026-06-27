@@ -3,6 +3,6 @@ const router = express.Router();
 const requireAuth = require("../middleware/auth");
 const { getConnectionStatus } = require("../controllers/connection.controller");
 
-router.get("/", requireAuth, getConnectionStatus);
+router.get("/connection-status", requireAuth, getConnectionStatus);
 
 module.exports = router;
