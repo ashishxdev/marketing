@@ -1,7 +1,4 @@
-import { Inter } from 'next/font/google';
 import './globals.css';
-
-const inter = Inter({ subsets: ['latin'], weight: ['300','400','500','600','700','800','900'] });
 
 export const metadata = {
   title: 'AdPulse AI — AI-Powered Ad Intelligence',
@@ -11,7 +8,7 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body>
         {children}
       </body>
     </html>

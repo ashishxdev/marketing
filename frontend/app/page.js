@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef } from 'react';
+import { Fragment, useEffect } from 'react';
 import Link from 'next/link';
 
 // Animated Background
@@ -208,13 +208,13 @@ export default function LandingPage() {
       <section className="relative z-10 px-20 pb-20">
         <div className="reveal bg-white/4 border border-white/8 rounded-3xl p-14 flex items-center justify-around gap-10 flex-wrap">
           {[['20+','Hours saved per week'],['2x','Faster decision making'],['100%','Tailored to your business'],['Daily','Fresh AI reports']].map(([v,l], i) => (
-            <>
-              {i > 0 && <div key={`d${i}`} className="w-px h-14 bg-white/8 hidden md:block" />}
-              <div key={v} className="text-center">
+            <Fragment key={v}>
+              {i > 0 && <div className="w-px h-14 bg-white/8 hidden md:block" />}
+              <div className="text-center">
                 <div className="text-5xl font-black gradient-text">{v}</div>
                 <div className="text-xs text-white/35 font-medium mt-2">{l}</div>
               </div>
-            </>
+            </Fragment>
           ))}
         </div>
       </section>
@@ -244,7 +244,7 @@ export default function LandingPage() {
           <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold" style={{background:'linear-gradient(135deg,#7c6af7,#00d4ff)'}}>⚡</div>
           <span className="font-bold text-white/60">AdPulse AI</span>
         </div>
-        <span>© 2025 AdPulse AI. All rights reserved.</span>
+        <span>© 2026 AdPulse AI. All rights reserved.</span>
         <div className="flex gap-6">
           <Link href="/privacy" className="hover:text-white/60 transition-colors">Privacy Policy</Link>
           <Link href="/login" className="hover:text-white/60 transition-colors">Sign In</Link>

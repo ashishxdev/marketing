@@ -1,69 +1,71 @@
-const axios = require("axios");
 const supabase = require("../config/supabase");
-const oauth2Client = require("../config/googleOAuth");
+const { createOAuthClient } = require("../config/googleOAuth");
+const { signOAuthState, verifyOAuthState } = require("../services/oauthState.service");
+const { listReportableCustomers, getGoogleAdsData } = require("../services/googleAds.service");
 
 const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3001";
 
 function googleLogin(req, res) {
-  const companyId = req.query.company_id || "";
+  const oauth2Client = createOAuthClient();
   const url = oauth2Client.generateAuthUrl({
     access_type: "offline",
+    prompt: "consent",
     scope: ["https://www.googleapis.com/auth/adwords"],
-    state: companyId,
+    state: signOAuthState(req.user.id, "google"),
   });
-  res.redirect(url);
+  res.json({ url });
 }
 
 async function googleCallback(req, res) {
   try {
     const code = req.query.code;
-    const companyId = req.query.state || "";
+    if (!code) throw new Error("Google authorization code is missing");
+    const companyId = verifyOAuthState(req.query.state, "google");
 
+    const oauth2Client = createOAuthClient();
     const { tokens } = await oauth2Client.getToken(code);
-
-    let customerIds = [];
-    if (process.env.GOOGLE_ADS_DEVELOPER_TOKEN) {
-      try {
-        const listRes = await axios.get(
-          "https://googleads.googleapis.com/v24/customers:listAccessibleCustomers",
-          {
-            headers: {
-              Authorization: `Bearer ${tokens.access_token}`,
-              "developer-token": process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
-            },
-          }
-        );
-        customerIds = listRes.data.resourceNames || [];
-      } catch (e) {
-        console.log(
-          "Could not list Google Ads customers:",
-          e.response?.data?.error ? JSON.stringify(e.response.data.error, null, 2) : e.message
-        );
-      }
-    } else {
-      console.log("ℹ️ Skipping Google Ads account listing: GOOGLE_ADS_DEVELOPER_TOKEN not set.");
-    }
-
-    if (companyId) {
-      await supabase.from("companies").upsert([{
-        id: companyId,
-        company_name: "My Company",
-        company_description: "",
-      }]);
-    }
+    const { customerIds, loginCustomerId } = await listReportableCustomers(tokens.access_token);
 
     const { error: upsertError } = await supabase.from("google_users").upsert([{
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token,
-      company_id: companyId || null,
+      company_id: companyId,
       customer_ids: customerIds,
-      selected_customer_id: customerIds[0]?.replace("customers/", "") || null,
-    }]);
-    if (upsertError) console.error("Google token upsert database error:", upsertError);
+      selected_customer_id: loginCustomerId || customerIds[0] || null,
+    }], { onConflict: "company_id" });
+    if (upsertError) throw upsertError;
+
+    const yesterday = new Date();
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+    const snapshotDate = yesterday.toISOString().slice(0, 10);
+    for (const customerId of customerIds) {
+      try {
+        const campaigns = await getGoogleAdsData(customerId, tokens.access_token, snapshotDate, loginCustomerId);
+        for (const campaign of campaigns) {
+          await supabase.from("campaign_snapshots").upsert([{
+            ad_account_id: customerId,
+            external_campaign_id: campaign.campaign_id,
+            company_id: companyId,
+            platform: "google",
+            campaign_name: campaign.campaign_name,
+            spend: campaign.spend,
+            ctr: campaign.ctr,
+            cpc: campaign.cpc,
+            impressions: campaign.impressions,
+            clicks: campaign.clicks,
+            snapshot_date: snapshotDate,
+          }], { onConflict: "company_id,platform,ad_account_id,external_campaign_id,snapshot_date" });
+        }
+      } catch (syncError) {
+        // Directly accessible manager accounts cannot always be queried for
+        // campaign metrics. Continue so usable client accounts still sync.
+        console.error(`Google Ads sync failed for ${customerId}:`, syncError.response?.data || syncError.message);
+      }
+    }
 
     res.redirect(`${frontendUrl}/dashboard?connected=google`);
   } catch (error) {
-    console.error("Google callback error:", error.message);
+    console.error("Google callback error:", error.response?.data || error.message);
     res.redirect(`${frontendUrl}/dashboard?error=google_failed`);
   }
 }

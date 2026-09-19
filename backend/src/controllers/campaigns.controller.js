@@ -1,25 +1,11 @@
 const supabase = require("../config/supabase");
 
-async function getAccounts(req, res) {
-  const { data: metaUser } = await supabase
-    .from("users")
-    .select("facebook_user_id")
-    .eq("company_id", req.user.id)
-    .single();
-
-  if (!metaUser) return res.json([]);
-
-  const { data: accounts } = await supabase
-    .from("ad_accounts")
-    .select("*")
-    .eq("user_id", metaUser.facebook_user_id);
-
-  res.json(accounts || []);
-}
-
 async function getCampaigns(req, res) {
   const platform = req.query.platform || "meta";
   const period = req.query.period || "daily";
+  if (!["meta", "google"].includes(platform) || !["daily", "weekly"].includes(period)) {
+    return res.status(400).json({ error: "Invalid platform or period" });
+  }
 
   const daysBack = period === "weekly" ? 7 : 1;
   const since = new Date();
@@ -38,4 +24,4 @@ async function getCampaigns(req, res) {
   res.json(data || []);
 }
 
-module.exports = { getAccounts, getCampaigns };
+module.exports = { getCampaigns };

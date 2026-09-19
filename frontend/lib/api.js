@@ -13,11 +13,11 @@ async function apiFetch(path, options = {}, token = null) {
 }
 
 export const api = {
-  getCompany:     (token)             => apiFetch('/api/company', {}, token),
-  createCompany:  (token, body)       => apiFetch('/api/company', { method: 'POST', body: JSON.stringify(body) }, token),
-  updateCompany:  (token, body)       => apiFetch('/api/company', { method: 'PUT',  body: JSON.stringify(body) }, token),
-  getAccounts:    (token)             => apiFetch('/api/accounts', {}, token),
-  getCampaigns:   (token, platform, period) => apiFetch(`/api/campaigns?platform=${platform}&period=${period}`, {}, token),
-  getReports:     (token, platform)   => apiFetch(`/api/reports?platform=${platform}`, {}, token),
-  getStatus:      (token)             => apiFetch('/api/connection-status', {}, token),
+  getCompany: (token) => apiFetch('/api/company', {}, token),
+  updateCompany: (token, body) => apiFetch('/api/company', { method: 'PUT', body: JSON.stringify(body) }, token),
+  getCampaigns: (token, platform, period) => apiFetch(`/api/campaigns?platform=${platform}&period=${period}`, {}, token),
+  getReports: (token, platform) => apiFetch(`/api/reports?platform=${platform}`, {}, token),
+  generateReport: (token, body) => apiFetch('/api/reports/generate', { method: 'POST', body: JSON.stringify(body) }, token),
+  getStatus: (token) => apiFetch('/api/connection-status', {}, token),
+  getConnectionUrl: (token, platform) => apiFetch(`/api/connections/${platform}`, {}, token),
 };

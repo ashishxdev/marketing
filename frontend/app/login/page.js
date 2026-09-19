@@ -9,7 +9,7 @@ function AnimatedBg() {
     <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
       <div className="orb-animate absolute w-[500px] h-[500px] rounded-full bg-purple-600 -top-48 -left-24 blur-[100px] opacity-15" />
       <div className="orb-animate-2 absolute w-[400px] h-[400px] rounded-full bg-cyan-400 -bottom-36 -right-24 blur-[100px] opacity-15" />
-      <div className="absolute inset-0" style={{backgroundImage:'linear-gradient(rgba(255,255,255,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.025) 1px,transparent 1px)',backgroundSize:'60px 60px'}} />
+      <div className="absolute inset-0" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.025) 1px,transparent 1px)', backgroundSize: '60px 60px' }} />
     </div>
   );
 }
@@ -47,22 +47,8 @@ function LoginContent() {
     e.preventDefault();
     setLoading(true); setError('');
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email: form.email, password: form.password });
+      const { error } = await supabase.auth.signInWithPassword({ email: form.email, password: form.password });
       if (error) throw error;
-
-      // Create company profile if pending from signup-before-confirm flow
-      const pendingName = localStorage.getItem('pending_company_name');
-      const pendingDesc = localStorage.getItem('pending_company_desc');
-      if (pendingName && data.session) {
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/company`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${data.session.access_token}` },
-          body: JSON.stringify({ company_name: pendingName, company_description: pendingDesc || '' }),
-        });
-        localStorage.removeItem('pending_company_name');
-        localStorage.removeItem('pending_company_desc');
-      }
-
       router.push('/dashboard');
     } catch (err) {
       setError(err.message);
@@ -76,31 +62,32 @@ function LoginContent() {
     if (!form.companyName.trim()) { setError('Please enter your company name'); return; }
     setLoading(true); setError('');
     try {
-      // 1. Create auth user (disable email redirect for local dev)
-      const { data, error: authErr } = await supabase.auth.signUp({
-        email: form.email,
-        password: form.password,
-        options: { emailRedirectTo: undefined },
+      // Call backend signup endpoint — uses service key to auto-confirm email
+      // and creates the company row atomically, no email confirmation needed
+      const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+      const res = await fetch(`${API}/api/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: form.email,
+          password: form.password,
+          company_name: form.companyName,
+          company_description: form.description,
+        }),
       });
-      if (authErr) throw authErr;
 
-      // 2. Create company row via backend if session exists
-      const session = data.session;
-      if (session) {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/company`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-          body: JSON.stringify({ company_name: form.companyName, company_description: form.description }),
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'Signup failed');
+
+      // Store session in Supabase client so the rest of the app works
+      if (body.session) {
+        await supabase.auth.setSession({
+          access_token: body.session.access_token,
+          refresh_token: body.session.refresh_token,
         });
-        if (!res.ok) throw new Error('Failed to create company profile');
-        router.push('/dashboard');
-      } else {
-        // Email confirmation required — store company name for after login
-        localStorage.setItem('pending_company_name', form.companyName);
-        localStorage.setItem('pending_company_desc', form.description);
-        setError('✅ Account created! Go to Supabase → SQL Editor and run:\n\nUPDATE auth.users SET email_confirmed_at = now() WHERE email = \'' + form.email + '\';\n\nThen sign in below.');
-        setMode('login');
       }
+
+      router.push('/dashboard');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -115,7 +102,7 @@ function LoginContent() {
         {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex flex-col items-center gap-3">
-            <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-bold" style={{background:'linear-gradient(135deg,#7c6af7,#00d4ff)'}}>⚡</div>
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-bold" style={{ background: 'linear-gradient(135deg,#7c6af7,#00d4ff)' }}>⚡</div>
             <h1 className="text-2xl font-black text-white">AdPulse <span className="gradient-text">AI</span></h1>
             <p className="text-sm text-white/40">{mode === 'login' ? 'Welcome back 👋' : 'Start your free trial'}</p>
           </Link>
@@ -125,10 +112,10 @@ function LoginContent() {
         <div className="bg-white/4 border border-white/10 rounded-3xl p-8 backdrop-blur-xl">
           {/* Tabs */}
           <div className="grid grid-cols-2 gap-1 bg-white/4 border border-white/8 rounded-xl p-1 mb-7">
-            {[['login','Sign In'],['signup','Sign Up']].map(([m, label]) => (
+            {[['login', 'Sign In'], ['signup', 'Sign Up']].map(([m, label]) => (
               <button key={m} onClick={() => { setMode(m); setError(''); }}
                 className={`py-2.5 rounded-lg text-sm font-semibold transition-all ${mode === m ? 'text-white' : 'text-white/40 hover:text-white/70'}`}
-                style={mode === m ? {background:'linear-gradient(135deg,#7c6af7,#00d4ff)'} : {}}>
+                style={mode === m ? { background: 'linear-gradient(135deg,#7c6af7,#00d4ff)' } : {}}>
                 {label}
               </button>
             ))}
@@ -148,7 +135,7 @@ function LoginContent() {
               <InputField id="password" label="Password" type="password" placeholder="Your password" value={form.password} onChange={set('password')} required />
               <button type="submit" disabled={loading}
                 className="mt-2 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold text-white transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_25px_rgba(124,106,247,0.5)] disabled:opacity-60 disabled:cursor-not-allowed"
-                style={{background:'linear-gradient(135deg,#7c6af7,#00d4ff)'}}>
+                style={{ background: 'linear-gradient(135deg,#7c6af7,#00d4ff)' }}>
                 {loading ? <span className="spin w-4 h-4 border-2 border-white/20 border-t-white rounded-full inline-block" /> : '🔑 Sign In'}
               </button>
             </form>
@@ -168,7 +155,7 @@ function LoginContent() {
               </div>
               <button type="submit" disabled={loading}
                 className="mt-2 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold text-white transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_25px_rgba(124,106,247,0.5)] disabled:opacity-60 disabled:cursor-not-allowed"
-                style={{background:'linear-gradient(135deg,#7c6af7,#00d4ff)'}}>
+                style={{ background: 'linear-gradient(135deg,#7c6af7,#00d4ff)' }}>
                 {loading ? <span className="spin w-4 h-4 border-2 border-white/20 border-t-white rounded-full inline-block" /> : '🚀 Create Account'}
               </button>
             </form>

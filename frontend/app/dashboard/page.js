@@ -1,12 +1,11 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { api } from '@/lib/api';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Legend
+  Tooltip, ResponsiveContainer
 } from 'recharts';
 
 /* ─────────────────────────────────────── 
@@ -14,7 +13,8 @@ import {
    ───────────────────────────────────────*/
 
 function Spinner({ size = 5 }) {
-  return <span className={`spin inline-block w-${size} h-${size} border-2 border-white/15 border-t-purple-500 rounded-full`} />;
+  const sizes = { 4: 'w-4 h-4', 5: 'w-5 h-5', 8: 'w-8 h-8' };
+  return <span className={`spin inline-block ${sizes[size] || sizes[5]} border-2 border-white/15 border-t-purple-500 rounded-full`} />;
 }
 
 function Skeleton({ className = '' }) {
@@ -23,12 +23,11 @@ function Skeleton({ className = '' }) {
 
 function Badge({ type, children }) {
   const styles = {
-    green:  'bg-green-500/15 border-green-500/30 text-green-400',
-    red:    'bg-red-500/15 border-red-500/30 text-red-400',
+    green: 'bg-green-500/15 border-green-500/30 text-green-400',
     purple: 'bg-purple-500/15 border-purple-500/30 text-purple-400',
-    cyan:   'bg-cyan-500/15 border-cyan-500/30 text-cyan-400',
+    cyan: 'bg-cyan-500/15 border-cyan-500/30 text-cyan-400',
     orange: 'bg-orange-500/15 border-orange-500/30 text-orange-400',
-    gray:   'bg-white/5 border-white/10 text-white/40',
+    gray: 'bg-white/5 border-white/10 text-white/40',
   };
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${styles[type] || styles.gray}`}>
@@ -37,16 +36,11 @@ function Badge({ type, children }) {
   );
 }
 
-function KpiCard({ icon, label, value, change, changeType, gradient, loading }) {
+function KpiCard({ icon, label, value, gradient, loading }) {
   return (
     <div className="p-6 rounded-2xl bg-white/4 border border-white/8 flex flex-col gap-3 hover:border-white/15 transition-all">
       <div className="flex items-center justify-between">
         <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-xl ${gradient}`}>{icon}</div>
-        {change && (
-          <span className={`text-xs font-semibold ${changeType === 'up' ? 'text-green-400' : 'text-red-400'}`}>
-            {changeType === 'up' ? '▲' : '▼'} {change}
-          </span>
-        )}
       </div>
       {loading ? (
         <>
@@ -91,14 +85,14 @@ function OverviewTab({ token, company, status }) {
   useEffect(() => {
     if (!token) return;
     Promise.all([
-      api.getCampaigns(token, 'meta', 'daily').catch(() => []),
-      api.getCampaigns(token, 'google', 'daily').catch(() => []),
+      api.getCampaigns(token, 'meta', 'weekly').catch(() => []),
+      api.getCampaigns(token, 'google', 'weekly').catch(() => []),
     ]).then(([meta, google]) => {
       const all = [...(meta || []), ...(google || [])];
-      const totalSpend   = all.reduce((s, c) => s + (+c.spend || 0), 0);
-      const totalImpr    = all.reduce((s, c) => s + (+c.impressions || 0), 0);
-      const totalClicks  = all.reduce((s, c) => s + (+c.clicks || 0), 0);
-      const avgCtr       = totalImpr ? (totalClicks / totalImpr) * 100 : 0;
+      const totalSpend = all.reduce((s, c) => s + (+c.spend || 0), 0);
+      const totalImpr = all.reduce((s, c) => s + (+c.impressions || 0), 0);
+      const totalClicks = all.reduce((s, c) => s + (+c.clicks || 0), 0);
+      const avgCtr = totalImpr ? (totalClicks / totalImpr) * 100 : 0;
       setKpis({ totalSpend, totalImpr, totalClicks, avgCtr });
 
       // Build 7-day chart from snapshots (group by date)
@@ -106,8 +100,8 @@ function OverviewTab({ token, company, status }) {
       all.forEach(c => {
         const d = c.snapshot_date || c.date_start || 'Today';
         if (!byDate[d]) byDate[d] = { date: d, spend: 0, clicks: 0, impressions: 0 };
-        byDate[d].spend      += +c.spend || 0;
-        byDate[d].clicks     += +c.clicks || 0;
+        byDate[d].spend += +c.spend || 0;
+        byDate[d].clicks += +c.clicks || 0;
         byDate[d].impressions += +c.impressions || 0;
       });
       // Calculate real CTR percentage for each date
@@ -120,7 +114,7 @@ function OverviewTab({ token, company, status }) {
     });
   }, [token]);
 
-  const fmt = (n, prefix = '') => n >= 1000 ? `${prefix}${(n/1000).toFixed(1)}K` : `${prefix}${n?.toFixed ? n.toFixed(2) : n}`;
+  const fmt = (n, prefix = '') => n >= 1000 ? `${prefix}${(n / 1000).toFixed(1)}K` : `${prefix}${n?.toFixed ? n.toFixed(2) : n}`;
 
   return (
     <div className="fade-in-up flex flex-col gap-6">
@@ -129,17 +123,17 @@ function OverviewTab({ token, company, status }) {
         <h2 className="text-xl font-bold text-white mb-1">Welcome back, <span className="gradient-text">{company?.company_name || 'there'}</span> 👋</h2>
         <p className="text-sm text-white/45">{company?.company_description || 'Set up your company description in Settings for tailored AI reports.'}</p>
         <div className="flex gap-2 mt-4">
-          {status?.meta    ? <Badge type="purple">✅ Meta Connected</Badge>  : <Badge type="gray">⚠️ Meta Not Connected</Badge>}
-          {status?.google  ? <Badge type="cyan">✅ Google Connected</Badge> : <Badge type="gray">⚠️ Google Not Connected</Badge>}
+          {status?.meta ? <Badge type="purple">✅ Meta Connected</Badge> : <Badge type="gray">⚠️ Meta Not Connected</Badge>}
+          {status?.google ? <Badge type="cyan">✅ Google Connected</Badge> : <Badge type="gray">⚠️ Google Not Connected</Badge>}
         </div>
       </div>
 
       {/* KPIs */}
       <div className="grid grid-cols-4 gap-4">
         <KpiCard loading={loading} icon="💸" label="Total Spend" value={kpis ? `$${fmt(kpis.totalSpend)}` : null} gradient="bg-purple-500/15" />
-        <KpiCard loading={loading} icon="👁️" label="Impressions"  value={kpis ? fmt(kpis.totalImpr) : null}  gradient="bg-cyan-500/15" />
+        <KpiCard loading={loading} icon="👁️" label="Impressions" value={kpis ? fmt(kpis.totalImpr) : null} gradient="bg-cyan-500/15" />
         <KpiCard loading={loading} icon="🖱️" label="Total Clicks" value={kpis ? fmt(kpis.totalClicks) : null} gradient="bg-green-500/15" />
-        <KpiCard loading={loading} icon="📊" label="Avg CTR"      value={kpis ? `${kpis.avgCtr.toFixed(2)}%` : null} gradient="bg-orange-500/15" />
+        <KpiCard loading={loading} icon="📊" label="Avg CTR" value={kpis ? `${kpis.avgCtr.toFixed(2)}%` : null} gradient="bg-orange-500/15" />
       </div>
 
       {/* Charts */}
@@ -180,7 +174,7 @@ function OverviewTab({ token, company, status }) {
                   <XAxis dataKey="date" tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 10 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 10 }} axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="ctr" name="CTR (%)" fill="#00d4ff" radius={[4,4,0,0]} />
+                  <Bar dataKey="ctr" name="CTR (%)" fill="#00d4ff" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )
@@ -194,13 +188,12 @@ function OverviewTab({ token, company, status }) {
 /* ─────────────────────────────────────── 
    TAB: ADS (Meta or Google) 
    ───────────────────────────────────────*/
-function AdsTab({ token, platform, status, companyId }) {
+function AdsTab({ token, platform, status }) {
   const [period, setPeriod] = useState('daily');
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const isMeta = platform === 'meta';
   const isConnected = status?.[platform];
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
   const fetchData = useCallback(async () => {
     if (!token || !isConnected) { setLoading(false); return; }
@@ -214,9 +207,13 @@ function AdsTab({ token, platform, status, companyId }) {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const handleConnect = () => {
-    const route = isMeta ? '/login' : '/google-login';
-    window.location.href = `${API_URL}${route}?company_id=${companyId}`;
+  const handleConnect = async () => {
+    try {
+      const { url } = await api.getConnectionUrl(token, platform);
+      window.location.assign(url);
+    } catch (error) {
+      window.alert(error.message);
+    }
   };
 
   const total = (key) => campaigns.reduce((s, c) => s + (+c[key] || 0), 0);
@@ -246,7 +243,7 @@ function AdsTab({ token, platform, status, companyId }) {
         {!isConnected && (
           <button onClick={handleConnect}
             className="px-6 py-2.5 rounded-xl text-sm font-bold text-white hover:shadow-[0_4px_20px_rgba(124,106,247,0.4)] transition-all"
-            style={{background:'linear-gradient(135deg,#7c6af7,#00d4ff)'}}>
+            style={{ background: 'linear-gradient(135deg,#7c6af7,#00d4ff)' }}>
             {isMeta ? '🔗 Connect Meta' : '🔗 Connect Google'}
           </button>
         )}
@@ -264,10 +261,10 @@ function AdsTab({ token, platform, status, companyId }) {
           {/* Period toggle + KPIs */}
           <div className="flex items-center justify-between">
             <div className="flex gap-1 p-1.5 bg-white/4 border border-white/8 rounded-xl w-fit">
-              {['daily','weekly'].map(p => (
+              {['daily', 'weekly'].map(p => (
                 <button key={p} onClick={() => setPeriod(p)}
                   className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all capitalize ${period === p ? 'text-white' : 'text-white/40 hover:text-white/70'}`}
-                  style={period === p ? {background:'linear-gradient(135deg,#7c6af7,#00d4ff)'} : {}}>
+                  style={period === p ? { background: 'linear-gradient(135deg,#7c6af7,#00d4ff)' } : {}}>
                   {p}
                 </button>
               ))}
@@ -280,11 +277,11 @@ function AdsTab({ token, platform, status, companyId }) {
           {/* Mini KPIs */}
           <div className="grid grid-cols-4 gap-3">
             {[
-              ['💸','Spend',`$${total('spend').toFixed(2)}`, 'bg-purple-500/15'],
-              ['👁️','Impressions',total('impressions').toLocaleString(), 'bg-cyan-500/15'],
-              ['🖱️','Clicks',total('clicks').toLocaleString(), 'bg-green-500/15'],
-              ['📊','Avg CTR',`${avgCtr}%`, 'bg-orange-500/15'],
-            ].map(([icon,label,val,grad]) => (
+              ['💸', 'Spend', `$${total('spend').toFixed(2)}`, 'bg-purple-500/15'],
+              ['👁️', 'Impressions', total('impressions').toLocaleString(), 'bg-cyan-500/15'],
+              ['🖱️', 'Clicks', total('clicks').toLocaleString(), 'bg-green-500/15'],
+              ['📊', 'Avg CTR', `${avgCtr}%`, 'bg-orange-500/15'],
+            ].map(([icon, label, val, grad]) => (
               <div key={label} className="p-4 rounded-xl bg-white/4 border border-white/8 flex items-center gap-3">
                 <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-lg ${grad}`}>{icon}</div>
                 <div>
@@ -308,7 +305,7 @@ function AdsTab({ token, platform, status, companyId }) {
                     <XAxis type="number" tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }} axisLine={false} tickLine={false} />
                     <YAxis type="category" dataKey="name" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 11 }} axisLine={false} tickLine={false} width={100} />
                     <Tooltip content={<CustomTooltip />} />
-                    <Bar dataKey="spend" name="Spend ($)" fill={CHART_COLORS[platform]} radius={[0,4,4,0]} />
+                    <Bar dataKey="spend" name="Spend ($)" fill={CHART_COLORS[platform]} radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               )
@@ -331,7 +328,7 @@ function AdsTab({ token, platform, status, companyId }) {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-white/6">
-                      {['Campaign','Spend','Impressions','Clicks','CTR','CPC','Status'].map(h => (
+                      {['Campaign', 'Spend', 'Impressions', 'Clicks', 'CTR', 'CPC', 'Status'].map(h => (
                         <th key={h} className="px-5 py-3.5 text-left text-[10px] font-bold text-white/30 uppercase tracking-widest whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -381,8 +378,8 @@ function ReportItem({ dot, text }) {
 function ReportCard({ report }) {
   const [open, setOpen] = useState(false);
   const r = report.report_json;
-  const date = new Date(report.created_at).toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
-  const time = new Date(report.created_at).toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' });
+  const date = new Date(report.created_at).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const time = new Date(report.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
   return (
     <div className="rounded-2xl border border-white/8 bg-white/3 overflow-hidden hover:border-white/15 transition-all">
@@ -452,17 +449,34 @@ function ReportsTab({ token }) {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    if (!token) return;
-    api.getReports(token, 'all').then(data => {
+  const loadReports = useCallback(() => {
+    if (!token) return Promise.resolve();
+    return api.getReports(token, 'all').then(data => {
       setReports(data || []);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [token]);
 
-  const filtered = filter === 'all' ? reports : reports.filter(r => 
-    r.platform === filter || 
+  useEffect(() => { loadReports(); }, [loadReports]);
+
+  const handleGenerate = async () => {
+    setGenerating(true);
+    setError('');
+    try {
+      await api.generateReport(token, { platform: 'both', period: 'weekly' });
+      await loadReports();
+    } catch (generateError) {
+      setError(generateError.message);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const filtered = filter === 'all' ? reports : reports.filter(r =>
+    r.platform === filter ||
     r.period === filter
   );
 
@@ -473,16 +487,25 @@ function ReportsTab({ token }) {
           <h2 className="text-xl font-bold text-white">AI Reports</h2>
           <p className="text-sm text-white/40 mt-1">Daily & weekly Gemini AI analysis of your campaigns</p>
         </div>
-        <div className="flex gap-1 p-1.5 bg-white/4 border border-white/8 rounded-xl">
-          {[['all','All'],['meta','Meta'],['google','Google'],['daily','Daily'],['weekly','Weekly']].map(([v,l]) => (
-            <button key={v} onClick={() => setFilter(v)}
-              className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${filter === v ? 'text-white' : 'text-white/40 hover:text-white/70'}`}
-              style={filter === v ? {background:'linear-gradient(135deg,#7c6af7,#00d4ff)'} : {}}>
-              {l}
-            </button>
-          ))}
+        <div className="flex items-center gap-2">
+          <button onClick={handleGenerate} disabled={generating}
+            className="px-4 py-2 rounded-xl text-xs font-bold text-white disabled:opacity-50"
+            style={{ background: 'linear-gradient(135deg,#7c6af7,#00d4ff)' }}>
+            {generating ? 'Generating…' : 'Generate now'}
+          </button>
+          <div className="flex gap-1 p-1.5 bg-white/4 border border-white/8 rounded-xl">
+            {[['all', 'All'], ['meta', 'Meta'], ['google', 'Google'], ['daily', 'Daily'], ['weekly', 'Weekly']].map(([v, l]) => (
+              <button key={v} onClick={() => setFilter(v)}
+                className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${filter === v ? 'text-white' : 'text-white/40 hover:text-white/70'}`}
+                style={filter === v ? { background: 'linear-gradient(135deg,#7c6af7,#00d4ff)' } : {}}>
+                {l}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
+
+      {error && <div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">{error}</div>}
 
       {loading ? (
         <div className="flex flex-col gap-3">
@@ -506,11 +529,10 @@ function ReportsTab({ token }) {
 /* ─────────────────────────────────────── 
    TAB: SETTINGS 
    ───────────────────────────────────────*/
-function SettingsTab({ token, company, onUpdate, status, companyId }) {
+function SettingsTab({ token, company, onUpdate, status }) {
   const [form, setForm] = useState({ company_name: company?.company_name || '', company_description: company?.company_description || '' });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
   useEffect(() => {
     if (company) setForm({ company_name: company.company_name || '', company_description: company.company_description || '' });
@@ -524,13 +546,17 @@ function SettingsTab({ token, company, onUpdate, status, companyId }) {
       onUpdate(form);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-    } catch {}
+    } catch { }
     setSaving(false);
   };
 
-  const handleConnect = (platform) => {
-    const route = platform === 'meta' ? '/login' : '/google-login';
-    window.location.href = `${API_URL}${route}?company_id=${companyId}`;
+  const handleConnect = async (platform) => {
+    try {
+      const { url } = await api.getConnectionUrl(token, platform);
+      window.location.assign(url);
+    } catch (error) {
+      window.alert(error.message);
+    }
   };
 
   return (
@@ -546,7 +572,7 @@ function SettingsTab({ token, company, onUpdate, status, companyId }) {
         <form onSubmit={handleSave} className="flex flex-col gap-4">
           <div>
             <label className="text-xs font-semibold text-white/40 uppercase tracking-widest block mb-2">Company Name</label>
-            <input value={form.company_name} onChange={e => setForm(f => ({...f, company_name: e.target.value}))}
+            <input value={form.company_name} onChange={e => setForm(f => ({ ...f, company_name: e.target.value }))}
               placeholder="Your company name"
               className="w-full bg-white/4 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-white/25 focus:outline-none focus:border-purple-500/60 focus:bg-purple-500/5 transition-all" />
           </div>
@@ -554,14 +580,14 @@ function SettingsTab({ token, company, onUpdate, status, companyId }) {
             <label className="text-xs font-semibold text-white/40 uppercase tracking-widest block mb-2">
               What does your company do? <span className="text-white/20 normal-case">(AI uses this to tailor your reports)</span>
             </label>
-            <textarea rows={4} value={form.company_description} onChange={e => setForm(f => ({...f, company_description: e.target.value}))}
+            <textarea rows={4} value={form.company_description} onChange={e => setForm(f => ({ ...f, company_description: e.target.value }))}
               placeholder="e.g. We sell handmade skincare products targeting women aged 25-40 in the US. Our main goal is brand awareness and driving conversions on our Shopify store..."
               className="w-full bg-white/4 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-white/25 resize-none focus:outline-none focus:border-purple-500/60 focus:bg-purple-500/5 transition-all" />
             <p className="text-xs text-white/25 mt-2">💡 More detail = better AI analysis. Tell us your industry, target audience, and goals.</p>
           </div>
           <button type="submit" disabled={saving}
             className="self-start px-6 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:shadow-[0_4px_20px_rgba(124,106,247,0.4)] disabled:opacity-60"
-            style={{background:'linear-gradient(135deg,#7c6af7,#00d4ff)'}}>
+            style={{ background: 'linear-gradient(135deg,#7c6af7,#00d4ff)' }}>
             {saving ? <span className="flex items-center gap-2"><Spinner size={4} /> Saving...</span> : saved ? '✅ Saved!' : '💾 Save Changes'}
           </button>
         </form>
@@ -582,7 +608,7 @@ function SettingsTab({ token, company, onUpdate, status, companyId }) {
             </div>
             {status?.meta
               ? <Badge type="green">● Connected</Badge>
-              : <button onClick={() => handleConnect('meta')} className="px-4 py-2 rounded-xl text-xs font-bold text-white" style={{background:'linear-gradient(135deg,#7c6af7,#00d4ff)'}}>Connect</button>
+              : <button onClick={() => handleConnect('meta')} className="px-4 py-2 rounded-xl text-xs font-bold text-white" style={{ background: 'linear-gradient(135deg,#7c6af7,#00d4ff)' }}>Connect</button>
             }
           </div>
           {/* Google */}
@@ -596,7 +622,7 @@ function SettingsTab({ token, company, onUpdate, status, companyId }) {
             </div>
             {status?.google
               ? <Badge type="green">● Connected</Badge>
-              : <button onClick={() => handleConnect('google')} className="px-4 py-2 rounded-xl text-xs font-bold text-white" style={{background:'linear-gradient(135deg,#7c6af7,#00d4ff)'}}>Connect</button>
+              : <button onClick={() => handleConnect('google')} className="px-4 py-2 rounded-xl text-xs font-bold text-white" style={{ background: 'linear-gradient(135deg,#7c6af7,#00d4ff)' }}>Connect</button>
             }
           </div>
         </div>
@@ -610,19 +636,19 @@ function SettingsTab({ token, company, onUpdate, status, companyId }) {
    ───────────────────────────────────────*/
 const NAV_ITEMS = [
   { id: 'overview', icon: '🏠', label: 'Overview' },
-  { id: 'meta',     icon: '📘', label: 'Meta Ads' },
-  { id: 'google',   icon: '🎯', label: 'Google Ads' },
-  { id: 'reports',  icon: '🤖', label: 'AI Reports' },
-  { id: 'settings', icon: '⚙️',  label: 'Settings' },
+  { id: 'meta', icon: '📘', label: 'Meta Ads' },
+  { id: 'google', icon: '🎯', label: 'Google Ads' },
+  { id: 'reports', icon: '🤖', label: 'AI Reports' },
+  { id: 'settings', icon: '⚙️', label: 'Settings' },
 ];
 
 function Sidebar({ activeTab, setActiveTab, company, onLogout }) {
-  const initials = (company?.company_name || 'A').slice(0,2).toUpperCase();
+  const initials = (company?.company_name || 'A').slice(0, 2).toUpperCase();
   return (
     <aside className="w-60 bg-[#0d0f1a] border-r border-white/8 fixed top-0 left-0 bottom-0 flex flex-col z-50">
       {/* Logo */}
       <div className="flex items-center gap-2.5 px-4 py-5 border-b border-white/8">
-        <div className="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold text-white shrink-0" style={{background:'linear-gradient(135deg,#7c6af7,#00d4ff)'}}>⚡</div>
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold text-white shrink-0" style={{ background: 'linear-gradient(135deg,#7c6af7,#00d4ff)' }}>⚡</div>
         <span className="text-sm font-black text-white">AdPulse <span className="gradient-text">AI</span></span>
       </div>
       {/* Nav */}
@@ -639,7 +665,7 @@ function Sidebar({ activeTab, setActiveTab, company, onLogout }) {
       {/* User */}
       <div className="p-2 border-t border-white/8">
         <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-white/4 border border-white/8">
-          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0" style={{background:'linear-gradient(135deg,#7c6af7,#00d4ff)'}}>
+          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ background: 'linear-gradient(135deg,#7c6af7,#00d4ff)' }}>
             {initials}
           </div>
           <div className="flex-1 overflow-hidden">
@@ -656,18 +682,17 @@ function Sidebar({ activeTab, setActiveTab, company, onLogout }) {
    MAIN DASHBOARD 
    ───────────────────────────────────────*/
 const PAGE_TITLES = {
-  overview: { title: 'Overview',   subtitle: "Here's what's happening with your ads today" },
-  meta:     { title: 'Meta Ads',   subtitle: 'Facebook & Instagram campaign performance' },
-  google:   { title: 'Google Ads', subtitle: 'Google Ads campaign performance' },
-  reports:  { title: 'AI Reports', subtitle: 'Gemini AI analysis of your campaigns' },
-  settings: { title: 'Settings',   subtitle: 'Manage your profile and connected accounts' },
+  overview: { title: 'Overview', subtitle: "Here's what's happening with your ads today" },
+  meta: { title: 'Meta Ads', subtitle: 'Facebook & Instagram campaign performance' },
+  google: { title: 'Google Ads', subtitle: 'Google Ads campaign performance' },
+  reports: { title: 'AI Reports', subtitle: 'Gemini AI analysis of your campaigns' },
+  settings: { title: 'Settings', subtitle: 'Manage your profile and connected accounts' },
 };
 
 export default function DashboardPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('overview');
   const [token, setToken] = useState(null);
-  const [user, setUser] = useState(null);
   const [company, setCompany] = useState(null);
   const [status, setStatus] = useState({ meta: false, google: false });
   const [authChecked, setAuthChecked] = useState(false);
@@ -680,9 +705,7 @@ export default function DashboardPage() {
 
   const refreshStatus = useCallback(async (tkn) => {
     try {
-      const st = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/connection-status`, {
-        headers: { Authorization: `Bearer ${tkn}` }
-      }).then(r => r.json());
+      const st = await api.getStatus(tkn);
       setStatus(st);
       return st;
     } catch { return null; }
@@ -693,17 +716,12 @@ export default function DashboardPage() {
       if (!session) { router.push('/login'); return; }
       const tkn = session.access_token;
       setToken(tkn);
-      setUser(session.user);
 
       // Fetch company + connection status
       try {
         const [comp, st] = await Promise.all([
-          fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/company`, {
-            headers: { Authorization: `Bearer ${tkn}` }
-          }).then(r => r.json()),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/connection-status`, {
-            headers: { Authorization: `Bearer ${tkn}` }
-          }).then(r => r.json()),
+          api.getCompany(tkn),
+          api.getStatus(tkn),
         ]);
         setCompany(comp);
         setStatus(st);
@@ -755,7 +773,7 @@ export default function DashboardPage() {
     return (
       <div className="min-h-screen bg-[#07080d] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-bold text-white" style={{background:'linear-gradient(135deg,#7c6af7,#00d4ff)'}}>⚡</div>
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-bold text-white" style={{ background: 'linear-gradient(135deg,#7c6af7,#00d4ff)' }}>⚡</div>
           <Spinner size={8} />
           <p className="text-white/40 text-sm">Loading dashboard...</p>
         </div>
@@ -764,7 +782,7 @@ export default function DashboardPage() {
   }
 
   const { title, subtitle } = PAGE_TITLES[activeTab] || {};
-  const today = new Date().toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
   return (
     <div className="min-h-screen bg-[#07080d] flex">
@@ -780,8 +798,8 @@ export default function DashboardPage() {
           <div className="flex items-center gap-3">
             <span className="text-xs text-white/30">{today}</span>
             <div className="flex gap-2">
-              {status?.meta    && <Badge type="purple">📘 Meta</Badge>}
-              {status?.google  && <Badge type="cyan">🎯 Google</Badge>}
+              {status?.meta && <Badge type="purple">📘 Meta</Badge>}
+              {status?.google && <Badge type="cyan">🎯 Google</Badge>}
             </div>
           </div>
         </header>
@@ -789,12 +807,12 @@ export default function DashboardPage() {
         {/* Content */}
         <div className="flex-1 p-8">
           {activeTab === 'overview' && <OverviewTab token={token} company={company} status={status} />}
-          {activeTab === 'meta'     && <AdsTab token={token} platform="meta"   status={status} companyId={user?.id} />}
-          {activeTab === 'google'   && <AdsTab token={token} platform="google" status={status} companyId={user?.id} />}
-          {activeTab === 'reports'  && <ReportsTab token={token} />}
+          {activeTab === 'meta' && <AdsTab token={token} platform="meta" status={status} />}
+          {activeTab === 'google' && <AdsTab token={token} platform="google" status={status} />}
+          {activeTab === 'reports' && <ReportsTab token={token} />}
           {activeTab === 'settings' && (
-            <SettingsTab token={token} company={company} companyId={user?.id} status={status}
-              onUpdate={(updated) => setCompany(c => ({...c, ...updated}))}
+            <SettingsTab token={token} company={company} status={status}
+              onUpdate={(updated) => setCompany(c => ({ ...c, ...updated }))}
             />
           )}
         </div>

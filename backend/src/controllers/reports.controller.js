@@ -18,11 +18,14 @@ async function getReports(req, res) {
   res.json(data || []);
 }
 
-async function testGenerateReport(req, res) {
+async function generateReport(req, res) {
   try {
-    const companyId = req.query.company_id || "7b7c5017-10b9-4fae-ae9f-ecc6ef0cde3f";
-    const platform = req.query.platform || "both";
-    const period = req.query.period || "weekly";
+    const companyId = req.user.id;
+    const platform = req.body.platform || "both";
+    const period = req.body.period || "weekly";
+    if (!["meta", "google", "both"].includes(platform) || !["daily", "weekly"].includes(period)) {
+      return res.status(400).json({ error: "Invalid platform or period" });
+    }
 
     const { data: company, error: compErr } = await supabase
       .from("companies")
@@ -34,10 +37,13 @@ async function testGenerateReport(req, res) {
       return res.status(404).json({ error: "Company profile not found. Please complete Settings first.", details: compErr });
     }
 
+    const since = new Date();
+    since.setUTCDate(since.getUTCDate() - (period === "weekly" ? 7 : 1));
     const { data: snapshots, error: snapErr } = await supabase
       .from("campaign_snapshots")
       .select("*")
-      .eq("company_id", companyId);
+      .eq("company_id", companyId)
+      .gte("snapshot_date", since.toISOString().slice(0, 10));
 
     if (snapErr || !snapshots?.length) {
       return res.status(400).json({ error: "No campaign snapshots found in database.", details: snapErr });
@@ -52,7 +58,7 @@ async function testGenerateReport(req, res) {
       return res.status(400).json({ error: `No campaign snapshots found for platform: ${platform}` });
     }
 
-    console.log(`🤖 Testing Gemini analysis for ${company.company_name} with ${filteredSnapshots.length} snapshots on platform: ${platform}...`);
+    console.log(`🤖 Generating analysis for ${company.company_name} with ${filteredSnapshots.length} snapshots on platform: ${platform}...`);
 
     const analysis = await analyzeAds(
       filteredSnapshots,
@@ -77,9 +83,9 @@ async function testGenerateReport(req, res) {
       report: analysis,
     });
   } catch (err) {
-    console.error("Test report generator error:", err.message);
+    console.error("Report generator error:", err.message);
     res.status(500).json({ error: err.message });
   }
 }
 
-module.exports = { getReports, testGenerateReport };
+module.exports = { getReports, generateReport };
